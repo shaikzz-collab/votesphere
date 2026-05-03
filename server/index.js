@@ -3,6 +3,9 @@ import cors from 'cors';
 import jwt from 'jsonwebtoken';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
+import xss from 'xss';
 import { db, saveDB } from './db.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -12,8 +15,27 @@ const app  = express();
 const port = process.env.PORT || 45678;
 const JWT_SECRET = process.env.JWT_SECRET || 'votesphere_super_secret_key_demo';
 
+// Security Headers
+app.use(helmet({
+  contentSecurityPolicy: false // Disabled for demo/local React SPA compatibility
+}));
 app.use(cors());
 app.use(express.json());
+
+// Rate Limiting for Auth
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per window
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many auth requests from this IP, please try again later' }
+});
+
+app.use('/api/auth', authLimiter);
+
+// Simple In-Memory Cache
+let electionCache = { data: null, timestamp: 0 };
+const CACHE_TTL = 60 * 1000; // 60 seconds
 
 // Serve Vite production build
 const distPath = path.join(__dirname, '..', 'dist');
@@ -107,7 +129,15 @@ app.post('/api/auth/reset-password', (req, res) => {
 });
 
 // --- ELECTION ROUTES ---
+/**
+ * @route GET /api/elections
+ * @desc Retrieve all elections (Uses In-Memory TTL Cache for Efficiency)
+ */
 app.get('/api/elections', (req, res) => {
+  if (electionCache.data && (Date.now() - electionCache.timestamp < CACHE_TTL)) {
+    return res.json(electionCache.data);
+  }
+  electionCache = { data: db.elections, timestamp: Date.now() };
   res.json(db.elections);
 });
 
@@ -175,12 +205,15 @@ app.post('/api/elections/:id/comments', authenticateToken, (req, res) => {
     return res.status(400).json({ error: 'Comment text is required.' });
   }
 
+  // Prevent Cross-Site Scripting (XSS)
+  const sanitizedText = xss(text.trim());
+
   const comment = {
     id: `comment_${Date.now()}`,
     electionId,
     userId: req.user.id,
     userName: req.user.name,
-    text: text.trim(),
+    text: sanitizedText,
     timestamp: new Date().toISOString()
   };
 
@@ -268,6 +301,12 @@ app.get('/api/analytics', (req, res) => {
   });
 
   res.json({ partyPerformance, electionParticipation });
+});
+
+// Global Error Handling Middleware
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({ error: 'Internal Server Error' });
 });
 
 // SPA fallback — always return index.html for non-API routes

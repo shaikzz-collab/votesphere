@@ -61,6 +61,7 @@ export default function AssistantWidget() {
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
             onClick={() => setIsOpen(true)}
+            aria-label="Open AI Election Assistant"
             style={{
               position: 'fixed',
               bottom: '1.5rem',

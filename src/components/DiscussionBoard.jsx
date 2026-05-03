@@ -86,6 +86,7 @@ export default function DiscussionBoard({ electionId }) {
               onChange={(e) => setNewComment(e.target.value)}
               placeholder="Share your thoughts on this election..."
               className="form-input"
+              aria-label="New comment input"
               style={{ width: '100%', padding: '0.75rem', marginBottom: '0.75rem', resize: 'none', background: 'var(--bg-secondary)', color: 'var(--text-primary)', minHeight: '100px', borderRadius: '0.75rem', boxSizing: 'border-box' }}
             />
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
@@ -93,9 +94,10 @@ export default function DiscussionBoard({ electionId }) {
                 type="submit" 
                 disabled={!newComment.trim()} 
                 className="btn btn-primary"
+                aria-label="Post Comment"
                 style={{ padding: '0.6rem 1.5rem', fontSize: '0.95rem' }}
               >
-                <Send size={16} /> Post Comment
+                <Send size={16} aria-hidden="true" /> Post Comment
               </button>
             </div>
           </form>
